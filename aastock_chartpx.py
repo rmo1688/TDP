@@ -24,7 +24,7 @@ def AA_Chart_Price(ticker):
   soup = BeautifulSoup(r.data, 'lxml')
   soup_text = soup.body.p.text
   
-  #Extract Today's Price
+  #Extract Price from Soup
   todayy = datetime.datetime.today()
   todayy = str(todayy.strftime('%m/%d/%Y'))
   price = soup_text.split(todayy)[1].split(';')[4]
@@ -36,7 +36,7 @@ in_date = datetime.datetime.today()
 yymmdd = in_date.strftime('%y%m%d')
 ddmmmyyyy = in_date.strftime('%d-%b-%Y')
 
-#Start by grabbing ticker file and store data in dataframe
+#Extract tickers from ticker file and store in dataframe
 portdf = pd.read_excel('port_tickers.xlsx') #need to leave header in excel
 tckr_ls = list(portdf[portdf.columns[0]])
 
