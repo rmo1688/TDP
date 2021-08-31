@@ -1,7 +1,7 @@
 
 # -*- coding: utf-8 -*-
 """
-AAstock_chartpx
+Stock Prices scraped from AA Stocks
 
 """
 
@@ -14,7 +14,17 @@ import openpyxl
 import pandas as pd
 
 
-def AA_Chart_Price(ticker):
+PORT_TICKERS_FILE = 'port_tickers.xlsx'
+
+
+def convert_ticker(old_ticker, px_source)
+  return new_ticker
+
+
+def yh_price(ticker)
+  return price
+
+def aa_price(ticker):
   #Convert Bloomberg ticker to AA Stock code to generate URL
   ticker_ls = ticker.split()
   code = ticker_ls[0].upper()
@@ -67,7 +77,7 @@ file_format_yymmdd = in_date.strftime('%y%m%d')
 loader_format_ddmmmyy = in_date.strftime('%d-%b-%Y')
 
 #Extract tickers from ticker file and store in dataframe
-portdf = pd.read_excel('port_tickers.xlsx') #need to leave header in excel
+portdf = pd.read_excel(PORT_TICKERS_FILE) #need to leave header in excel
 tckr_ls = list(portdf[portdf.columns[0]])
 
 print('Getting prices for ' + loader_format_ddmmmyy) #display
@@ -75,7 +85,7 @@ print('Getting prices for ' + loader_format_ddmmmyy) #display
 px_dict = {} #stores prices and corresponding ticker
 for ticker in tckr_ls:
   try:
-    price = AA_Chart_Price(ticker)   #grabs price from AA Charts
+    price = aa_price(ticker)   #grabs price from AA Charts
     px_dict[ticker]=price
   except:
     print('skipped '+ ticker)
