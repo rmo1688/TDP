@@ -27,27 +27,27 @@ INDEX_DICT = {
             'SPX'    : ['yh','^SPX'     ],
             'NDX'    : ['yh','^NDX'     ],
             }
-FUTURES_DICT = {
-            'HI' : ['aa', ['221000.HK','221001.HK']],
-            'HC' : ['aa', ['221006.HK','221008.HK']],
-            'HCT': ['aa', ['221014.HK','221016.HK']],
-            'ES' : ['yh','ESU21.CME'],
-            'NQ' : ['yh','NQU21.CME'],
-            'XU' : ['yh','CN-U21.SI'],
-            }
 FUT_CONT_DICT = {
-            'G':'01',
-            'H':'02',
-            'J':'03',
-            'K':'04',
-            'M':'05',
-            'N':'06',
-            'P':'07',
-            'Q':'08',
-            'U':'09',
-            'V':'10',
-            'X':'11',
-            'Z':'12',
+                  'HI' : ['aa',['221000.HK','221001.HK']],
+                  'HC' : ['aa',['221006.HK','221008.HK']],
+                  'HCT': ['aa',['221014.HK','221016.HK']],
+                  'ES' : ['yh','ES .CME',],
+                  'NQ' : ['yh','NQ .CME',],
+                  'XU' : ['yh','CN- .SI',],
+                  }
+FUT_MONTH_DICT = {
+            'G':'01', '01':'G',
+            'H':'02', '02':'H',
+            'J':'03', '03':'J',
+            'K':'04', '04':'K',
+            'M':'05', '05':'M',
+            'N':'06', '06':'N',
+            'P':'07', '07':'P',
+            'Q':'08', '08':'Q',
+            'U':'09', '09':'U',
+            'V':'10', '10':'V',
+            'X':'11', '11':'X',
+            'Z':'12', '12':'Z',
             }
 EXCH_DICT = { # exchange : [price source, exchange code in source]
             'HK': ['aa', 'HK'],
@@ -64,6 +64,13 @@ def get_soup(url):
   soup = BeautifulSoup(r.data, 'lxml')
   return soup
 
+def front_fut(): 
+  url = 'https://www.aastocks.com/en/stocks/market/bmpfutures.aspx?future=200000'
+  soup = get_soup(url)
+  exp = soup.body.find_all('div', class_ = 'float_r cls')[-1].text
+  moyr = datetime.datetime.strptime(exp,'%Y/%m/%d').strftime('%m%y')
+  return moyr
+
 def price_grab(ticker): # Selects price source and converts Bloomberg ticker to source format
   ticker_ls = ticker.split()
   code = ticker_ls[0].upper()
@@ -74,14 +81,22 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
   if sec_type == 'INDEX':
     px_src = INDEX_DICT[code][0]
     code = INDEX_DICT[code][1]
-  elif sec_type == 'FUTURE': 
-    px_src = FUTURES_DICT[code[:-2]][0]
-    mo = datetime.datetime.today().strftime('%m')
-    yr = datetime.datetime.today().strftime('%y')
-    cont_mo = 0 ##################################################set contract month/year here 
-    code = FUTURES_DICT[code[:-2]][1][cont_mo]
+
+  elif sec_type == 'FUTURE':
+    px_src = FUT_CONT_DICT[code[:-2]][0] # [:-2] removes last 2 characters
+    curr_moyr = front_fut()
+    front_cont = ''.join([FUT_MONTH_DICT[curr_moyr[:2]],curr_moyr[-1]]) # front month & year eg.Z1,H3
+
+    if px_src == 'yh':
+      cont_ls = (FUT_CONT_DICT[code[:-2]][1]).split()
+      code = ''.join([cont_ls[0],code[-2],'2',code[-1],cont_ls[-1]])
+    else:
+      cont_mo = 1 if code [-2:] != front_cont else 0
+      code = FUT_CONT_DICT[code[:-2]][1][cont_mo]
+
   elif sec_type == 'OPTION':
     sec_type = 'OPTION' # HK Options use AA stocks, Other manual? US Index options use Yahoo?
+
   else: # EQUITY
     exch = exch if exch != 'CH' else 'C1' if code.startswith('6') else 'C2'
     px_src = EXCH_DICT[exch][0] 
@@ -97,11 +112,9 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
 def yh_price(ticker_ls): # For SG/TW/US Equity/Futures/Index
   code = ticker_ls[0]
   sec_type = ticker_ls[-1]
-  no_exch_frmt = ((exch := ticker_ls[1])  == 'US') or (sec_type == 'INDEX')
-  code = code if no_exch_frmt else (code := code + '.' + exch)
-  print('yh ',code)
+  no_exch_frmt = ((exch := ticker_ls[1])  == 'US') or (sec_type in ['INDEX','FUTURE'])
+  code = code if no_exch_frmt else (code := (code + '.' + exch))
   price = round(yf.Ticker(code).history(period='1d').iloc[0, 3],2)
-  print(code,str(price))
   return price
 
 def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
@@ -120,7 +133,7 @@ def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
   soup_text = soup.body.p.text
   todayy = datetime.datetime.today().strftime('%m/%d/%Y')
   price = round(float(soup_text.split(todayy)[1].split(';')[4]),2)  #Extract Price from Soup
-  print(code,sec_type,str(price))
+  #print('aa',code,str(price))
   return price
 
 
@@ -139,7 +152,7 @@ print('Getting prices for ' + loader_format_ddmmmyy) #display
 
 for ticker in tckr_ls:
   try:
-    price = price_grab(ticker)   #grabs price from AA Charts
+    price = price_grab(str(ticker))   #grabs price from AA Charts
     px_dict[ticker] = price
   except:
     print('skipped '+ ticker)
@@ -173,20 +186,20 @@ ldr_row = 0 #counter
 #TDP Loader Construction
 ldr_dict = {}
 tdp_hdr = [
-            '#!CONNECT=HK053_RMO/HK053_RMO@PROD_HO3ORC08_FM.world',
-            '#!MAX_ERROR=1000',
-            '#!OPF=TDP_LOADER.import_price',
+          '#!CONNECT=HK053_RMO/HK053_RMO@PROD_HO3ORC08_FM.world',
+          '#!MAX_ERROR=1000',
+          '#!OPF=TDP_LOADER.import_price',
           ]
 px_hdr = [
-            '#in_ladder_date',
-            'in_ident_type',
-            'in_ext_ident',
-            'in_value_spec',
-            'in_price',
-            'in_hilo_ind',
-            'in_price_ccy',
-            'in_notes'
-            ]
+          '#in_ladder_date',
+          'in_ident_type',
+          'in_ext_ident',
+          'in_value_spec',
+          'in_price',
+          'in_hilo_ind',
+          'in_price_ccy',
+          'in_notes'
+          ]
 ldr_col = len(px_hdr)
 ldr_row = 0
 
