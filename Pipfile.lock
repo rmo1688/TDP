@@ -329,10 +329,10 @@
         },
         "pefile": {
             "hashes": [
-                "sha256:ed79b2353daa58421459abf4d685953bde0adf9f6e188944f97ba9795f100246"
+                "sha256:9981fb6e7950ecb5dcf48a8b18f02375ac790d39fafc52ec4ee13730d40dc65a"
             ],
             "markers": "sys_platform == 'win32'",
-            "version": "==2021.5.24"
+            "version": "==2021.9.2"
         },
         "pyinstaller": {
             "hashes": [
