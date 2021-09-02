@@ -12,6 +12,7 @@ datetime = "*"
 urllib3 = "*"
 beautifulsoup4 = "*"
 lxml = "*"
+yfinance = "*"
 
 [dev-packages]
 pyinstaller = "*"
