@@ -36,13 +36,13 @@ FUT_CONT_DICT = {
                   'XU' : ['yh','CN- .SI',],
                   }
 FUT_MONTH_DICT = {
-            'G':'01', '01':'G',
-            'H':'02', '02':'H',
-            'J':'03', '03':'J',
-            'K':'04', '04':'K',
-            'M':'05', '05':'M',
-            'N':'06', '06':'N',
-            'P':'07', '07':'P',
+            'F':'01', '01':'F',
+            'G':'02', '02':'G',
+            'H':'03', '03':'H',
+            'J':'04', '04':'J',
+            'K':'05', '05':'K',
+            'M':'06', '06':'M',
+            'N':'07', '07':'N',
             'Q':'08', '08':'Q',
             'U':'09', '09':'U',
             'V':'10', '10':'V',
@@ -84,12 +84,15 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
 
   elif sec_type == 'FUTURE':
     px_src = FUT_CONT_DICT[code[:-2]][0] # [:-2] removes last 2 characters
-    curr_moyr = front_fut()
+    curr_moyr = front_fut() # MMYY format
     front_cont = ''.join([FUT_MONTH_DICT[curr_moyr[:2]],curr_moyr[-1]]) # front month & year eg.Z1,H3
 
     if px_src == 'yh':
       cont_ls = (FUT_CONT_DICT[code[:-2]][1]).split()
-      code = ''.join([cont_ls[0],code[-2],'2',code[-1],cont_ls[-1]])
+
+      yr = str(int(yr) + 1) if (yr := curr_moyr[-2:])[-1] == '9' and code[-1] == '0' else yr
+
+      code = ''.join([cont_ls[0],code[-2], ,code[-1],cont_ls[-1]])
     else:
       cont_mo = 1 if code [-2:] != front_cont else 0
       code = FUT_CONT_DICT[code[:-2]][1][cont_mo]
