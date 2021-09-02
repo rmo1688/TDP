@@ -92,7 +92,7 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
 
       yr = str(int(yr) + 1) if (yr := curr_moyr[-2:])[-1] == '9' and code[-1] == '0' else yr
 
-      code = ''.join([cont_ls[0], code[-2], yr, code[-1], cont_ls[-1]])
+      code = ''.join([cont_ls[0], code[-2], yr[-2], code[-1], cont_ls[-1]])
     else:
       cont_mo = 1 if code [-2:] != front_cont else 0
       code = FUT_CONT_DICT[code[:-2]][1][cont_mo]
