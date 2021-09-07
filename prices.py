@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 import datetime
 import lxml
 import openpyxl
+import os.path
 import requests
 import time
 import urllib3
@@ -64,7 +65,7 @@ def get_soup(url):
   soup = BeautifulSoup(r.data, 'lxml')
   return soup
 
-def front_fut(): 
+def front_fut():
   url = 'https://www.aastocks.com/en/stocks/market/bmpfutures.aspx?future=200000'
   soup = get_soup(url)
   exp = soup.body.find_all('div', class_ = 'float_r cls')[-1].text
@@ -102,13 +103,13 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
 
   else: # EQUITY
     exch = exch if exch != 'CH' else 'C1' if code.startswith('6') else 'C2'
-    px_src = EXCH_DICT[exch][0] 
+    px_src = EXCH_DICT[exch][0]
 
   ticker_ls = [code, exch, sec_type]
   src_dict = {
-            'aa':aa_price, 
+            'aa':aa_price,
             'yh':yh_price,
-            }           
+            }
   price = src_dict[px_src](ticker_ls)
   return price
 
@@ -129,7 +130,6 @@ def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
   sec_type = ticker_ls[-1]
   if sec_type == 'EQUITY':
     code = code.zfill(5) + '.' + exch
-
   is_us = '' if exch != 'US' else exch
   chartdata1_url = 'https://' + is_us + URL_1 + code + URL_2
   soup = get_soup(chartdata1_url)
@@ -178,7 +178,7 @@ px_hdr = [ #headers for this type of loader
           'in_hilo_ind',
           'in_price_ccy',
           'in_notes',
-          ] 
+          ]
 fx_hdr = []
 delta_hdr = []
 
@@ -218,8 +218,7 @@ for i in px_dict:
   ldr_row +=1
 ldr_df = pd.DataFrame.from_dict(ldr_dict,orient='index')
 
-#Generate PRICE Loader File
-filename = 'tdp_loader_PRICE_' + file_format_yymmdd + '.xlsx'
-print(filename)
-ldr_df.to_excel(filename,index=0,header=False)
-
+print(filename := 'tdp_loader_PRICE_' + file_format_yymmdd)
+ldr_df.to_excel(filename + '.xlsx',index=0,header=False) # save xlsx copy
+if os.path.exists(tdp_folder := 'C:\\tdp_loader\\hk053\\input\\'): # generate csv loader in tdp folder
+    ldr_df.to_csv(tdp_folder + filename + '.csv',index=0,header=False)
