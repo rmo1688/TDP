@@ -32,9 +32,9 @@ INDEX_DICT = {
             'NDX'    : ['yh','^NDX'     ],
             }
 FUT_CONT_DICT = {
-                  'HI' : ['aa',['221000.HK','221001.HK']],
-                  'HC' : ['aa',['221006.HK','221008.HK']],
-                  'HCT': ['aa',['221014.HK','221016.HK']],
+                  'HI' : ['et','HSI'],
+                  'HC' : ['et','HHI'],
+                  'HCT': ['et','HTI'],
                   'ES' : ['yh','ES .CME',],
                   'NQ' : ['yh','NQ .CME',],
                   'XU' : ['yh','CN- .SI',],
@@ -62,18 +62,17 @@ EXCH_DICT = { # exchange : [price source, exchange code in source]
             }
 
 
+def contract_month(code): # returns contract month/year using ticker
+  yr = str(datetime.date.today().year + (y := 1 if code[-2:] =='F0' else 0))
+  mo = FUT_MONTH_DICT[code[-2]]
+  yearmo = yr + mo
+  return yearmo # YYYYMM format
+
 def get_soup(url):
   http = urllib3.PoolManager()
   r = http.request('GET', url)
   soup = BeautifulSoup(r.data, 'lxml')
   return soup
-
-def front_fut():
-  url = 'https://www.aastocks.com/en/stocks/market/bmpfutures.aspx?future=200000'
-  soup = get_soup(url)
-  exp = soup.body.find_all('div', class_ = 'float_r cls')[-1].text
-  moyr = datetime.datetime.strptime(exp,'%Y/%m/%d').strftime('%m%y')
-  return moyr
 
 def price_grab(ticker): # Selects price source and converts Bloomberg ticker to source format
   ticker_ls = ticker.split()
@@ -86,18 +85,14 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
     code = INDEX_DICT[code][1]
   elif sec_type == 'FUTURE':
     px_src = FUT_CONT_DICT[code[:-2]][0] # [:-2] removes last 2 characters
-    curr_moyr = front_fut() # MMYY format
-    front_cont = ''.join([FUT_MONTH_DICT[curr_moyr[:2]],curr_moyr[-1]]) # front month & year eg.Z1,H3
     if px_src == 'yh':
       cont_ls = (FUT_CONT_DICT[code[:-2]][1]).split()
-      yr = str(int(yr) + 1) if (yr := curr_moyr[-2:])[-1] == '9' and code[-1] == '0' else yr
-      code = ''.join([cont_ls[0], code[-2], yr[-2], code[-1], cont_ls[-1]])
+      code = ''.join([cont_ls[0], code[-2], contract_month(code)[:4][2:], cont_ls[-1]])
     else:
-      cont_mo = 1 if code [-2:] != front_cont else 0
-      code = FUT_CONT_DICT[code[:-2]][1][cont_mo]
+      code = FUT_CONT_DICT[code[:-2]][1] + contract_month(code)
   elif sec_type == 'OPTION':
     px_src = 'db'
-  elif int(code) >= 9999 and int(code) < 30000:
+  elif len(code) == 5 and code[0] in '128':
     sec_type = 'WARRANT'
     px_src = 'db'
   else: # EQUITY
@@ -108,34 +103,15 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
   src_dict = {
             'aa':aa_price,
             'db':db_price,
+            'et':et_fut,
             'yh':yh_price,
             }
   price = src_dict[px_src](ticker_ls)
   return price
 
-def db_price(ticker_ls):
-  URL_1 = 'http://www.dbpower.com.hk/en/option/option-search?otype=ucode&ucode='
-  URL_2 = '&hcode=&mdate='
-  
-  code = ticker_ls[0].zfill(5) #1088
-  exp = ticker_ls[2].split('/')
-  exp_code = '20' + exp[-1] + '-' + exp[0] #YYYY-MM
-  callput = ticker_ls[3][0].upper()
-  strike = ticker_ls[3][1:]
-  db_url = URL_1 + code + URL_2 + exp_code
-  soup = get_soup(db_url)
-  option_chain = soup.table.find(text = strike, class_ = 'strike').parent
-  if callput == 'P':
-    price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
-  else:
-    price = option_chain.find('td', class_ = 'live_option_search').text
-  price = '0' if price == '-' else price
-  return price
-
-def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
+def aa_price(ticker_ls): # For HK/CH Equity/Index
   URL_1 = 'chartdata1.internet.aastocks.com/servlet/iDataServlet/getdaily?id='
   URL_2 = '&type=24&market=1&level=1&period=56&encoding=utf8'
-
   code = ticker_ls[0]
   exch = EXCH_DICT[ticker_ls[1]][1] if (exch := ticker_ls[1]) != '' else exch
   sec_type = ticker_ls[-1]
@@ -148,6 +124,34 @@ def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
   todayy = datetime.datetime.today().strftime('%m/%d/%Y')
   price = round(float(soup_text.split(todayy)[1].split(';')[4]),2)  #Extract Price from Soup
   #print('aa',code,str(price))
+  return price
+
+def db_price(ticker_ls): # For HK Options
+  URL_1 = 'http://www.dbpower.com.hk/en/option/option-search?otype=ucode&ucode='
+  URL_2 = '&hcode=&mdate='
+  code = ticker_ls[0].zfill(5) #1088
+  exp = ticker_ls[2].split('/')
+  exp_code = '20' + exp[-1] + '-' + exp[0] #YYYY-MM
+  callput = ticker_ls[3][0].upper()
+  strike = ticker_ls[3][1:]
+  db_url = URL_1 + code + URL_2 + exp_code
+  soup = get_soup(db_url)
+  option_chain = soup.table.find(text = strike, class_ = 'strike').parent
+  if callput == 'P':
+    price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
+  else:
+    price = option_chain.find('td', class_ = 'live_option_search').text
+    price = '0' if price == '-' else price
+  return price
+
+def et_fut(ticker_ls): # For HK Futures
+  URL_1 = 'http://www.etnet.com.hk/www/eng/futures/index.php?subtype='
+  URL_2 = '&month='
+  code = ticker_ls[0][:3]
+  cont_mo = ticker_ls[0][3:]
+  et_url = URL_1 + code + URL_2 + cont_mo
+  soup = get_soup(et_url)
+  price = soup.find('div', class_ = 'FuturesQuoteNominal').span.text.replace(',','')
   return price
 
 def yh_price(ticker_ls): # For SG/TW/US Equity/Futures/Index
@@ -176,8 +180,8 @@ for ticker in tckr_ls:
   try:
     price = price_grab(str(ticker))   #grabs price from AA Charts
     px_dict[ticker] = price
-  except:
-    print('skipped '+ ticker)
+  except Exception as e:
+    print(e, 'skipped '+ ticker)
     skipped_tickers[ticker] = ''
 
 #TDP Loader Definitions
