@@ -2,11 +2,12 @@
 # -*- coding: utf-8 -*-
 
 """
-Stock Prices scraped from AA Stocks and Yahoo Finance
+Stock Prices scraped from various websites
 
 """
 
 from bs4 import BeautifulSoup
+from tqdm import tqdm
 import config
 import datetime
 import lxml
@@ -176,7 +177,7 @@ skipped_tickers = {} # stores tickers of skipped tickers
 
 print('Getting prices for ' + loader_format_ddmmmyy) #display
 
-for ticker in tckr_ls:
+for ticker in tqdm(tckr_ls):
   try:
     price = price_grab(str(ticker))   #grabs price from AA Charts
     px_dict[ticker] = price
