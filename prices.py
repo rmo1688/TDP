@@ -7,11 +7,14 @@ Stock Prices scraped from AA Stocks and Yahoo Finance
 """
 
 from bs4 import BeautifulSoup
+import config
 import datetime
 import lxml
 import openpyxl
 import os.path
 import requests
+import smtplib
+import ssl
 import time
 import urllib3
 import pandas as pd
@@ -78,47 +81,55 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
   sec_type = ticker_ls[-1].upper() if len(ticker_ls) <= 3 else 'OPTION'
   sec_type = sec_type if sec_type != 'INDEX' else 'FUTURE' if code not in INDEX_DICT else 'INDEX'
   exch = '' if sec_type != 'EQUITY' else ticker_ls[1].upper()
-
   if sec_type == 'INDEX':
     px_src = INDEX_DICT[code][0]
     code = INDEX_DICT[code][1]
-
   elif sec_type == 'FUTURE':
     px_src = FUT_CONT_DICT[code[:-2]][0] # [:-2] removes last 2 characters
     curr_moyr = front_fut() # MMYY format
     front_cont = ''.join([FUT_MONTH_DICT[curr_moyr[:2]],curr_moyr[-1]]) # front month & year eg.Z1,H3
-
     if px_src == 'yh':
       cont_ls = (FUT_CONT_DICT[code[:-2]][1]).split()
-
       yr = str(int(yr) + 1) if (yr := curr_moyr[-2:])[-1] == '9' and code[-1] == '0' else yr
-
       code = ''.join([cont_ls[0], code[-2], yr[-2], code[-1], cont_ls[-1]])
     else:
       cont_mo = 1 if code [-2:] != front_cont else 0
       code = FUT_CONT_DICT[code[:-2]][1][cont_mo]
-
   elif sec_type == 'OPTION':
-    sec_type = 'OPTION' # HK Options use AA stocks, Other manual? US Index options use Yahoo?
-
+    px_src = 'db'
+  elif int(code) >= 9999 and int(code) < 30000:
+    sec_type = 'WARRANT'
+    px_src = 'db'
   else: # EQUITY
     exch = exch if exch != 'CH' else 'C1' if code.startswith('6') else 'C2'
     px_src = EXCH_DICT[exch][0]
 
-  ticker_ls = [code, exch, sec_type]
+  ticker_ls = [code, exch, sec_type] if sec_type != 'OPTION' else ticker.split()
   src_dict = {
             'aa':aa_price,
+            'db':db_price,
             'yh':yh_price,
             }
   price = src_dict[px_src](ticker_ls)
   return price
 
-def yh_price(ticker_ls): # For SG/TW/US Equity/Futures/Index
-  code = ticker_ls[0]
-  sec_type = ticker_ls[-1]
-  no_exch_frmt = ((exch := ticker_ls[1])  == 'US') or (sec_type in ['INDEX','FUTURE'])
-  code = code if no_exch_frmt else (code := (code + '.' + exch))
-  price = round(yf.Ticker(code).history(period='1d').iloc[0, 3],2)
+def db_price(ticker_ls):
+  URL_1 = 'http://www.dbpower.com.hk/en/option/option-search?otype=ucode&ucode='
+  URL_2 = '&hcode=&mdate='
+  
+  code = ticker_ls[0].zfill(5) #1088
+  exp = ticker_ls[2].split('/')
+  exp_code = '20' + exp[-1] + '-' + exp[0] #YYYY-MM
+  callput = ticker_ls[3][0].upper()
+  strike = ticker_ls[3][1:]
+  db_url = URL_1 + code + URL_2 + exp_code
+  soup = get_soup(db_url)
+  option_chain = soup.table.find(text = strike, class_ = 'strike').parent
+  if callput == 'P':
+    price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
+  else:
+    price = option_chain.find('td', class_ = 'live_option_search').text
+  price = '0' if price == '-' else price
   return price
 
 def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
@@ -137,6 +148,14 @@ def aa_price(ticker_ls): # For HK/CH Equity/Futures/Index
   todayy = datetime.datetime.today().strftime('%m/%d/%Y')
   price = round(float(soup_text.split(todayy)[1].split(';')[4]),2)  #Extract Price from Soup
   #print('aa',code,str(price))
+  return price
+
+def yh_price(ticker_ls): # For SG/TW/US Equity/Futures/Index
+  code = ticker_ls[0]
+  sec_type = ticker_ls[-1]
+  no_exch_frmt = ((exch := ticker_ls[1])  == 'US') or (sec_type in ['INDEX','FUTURE'])
+  code = code if no_exch_frmt else (code := (code + '.' + exch))
+  price = round(yf.Ticker(code).history(period='1d').iloc[0, 3],2)
   return price
 
 
@@ -203,11 +222,9 @@ px_hdr = [
           'in_price_ccy',
           'in_notes'
           ]
-ldr_col = len(px_hdr)
 ldr_row = 0
-
 for hdr in tdp_hdr:
-  ldr_list = [''] * ldr_col
+  ldr_list = [''] * len(px_hdr)
   ldr_list[0] = hdr
   ldr_dict[ldr_row] = ldr_list
   ldr_row += 1
@@ -222,3 +239,17 @@ print(filename := 'tdp_loader_PRICE_' + file_format_yymmdd)
 ldr_df.to_excel(filename + '.xlsx',index=0,header=False) # save xlsx copy
 if os.path.exists(tdp_folder := 'C:\\tdp_loader\\hk053\\input\\'): # generate csv loader in tdp folder
     ldr_df.to_csv(tdp_folder + filename + '.csv',index=0,header=False)
+
+email = config.email
+to_email = config.to_email
+pascode = config.pascode
+subj = 'Prices loader is ready'
+message = 'From: %s\r\n' % email + 'To: %s\r\n' % to_email + 'Subject: %s\r\n' % subj + '\r\n' + ''
+port = 465
+context = ssl.create_default_context()
+try:
+    with smtplib.SMTP_SSL('smtp.gmail.com', port, context = context) as server:
+    	server.login(email, pascode)
+    	server.sendmail(email, email, message)
+except:
+    print('Notification could not be sent.')
