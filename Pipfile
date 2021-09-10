@@ -13,6 +13,7 @@ urllib3 = "*"
 beautifulsoup4 = "*"
 lxml = "*"
 yfinance = "*"
+tqdm = "*"
 
 [dev-packages]
 pyinstaller = "*"
