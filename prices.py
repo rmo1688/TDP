@@ -172,7 +172,7 @@ in_date = datetime.datetime.today()
 file_format_yymmdd = in_date.strftime('%y%m%d')
 loader_format_ddmmmyy = in_date.strftime('%d-%b-%Y')
 
-px_dict = {} # stores prices and corresponding ticker
+data_dict = {} # stores prices and corresponding ticker
 skipped_tickers = {} # stores tickers of skipped tickers
 
 print('Getting prices for ' + loader_format_ddmmmyy) #display
@@ -180,7 +180,7 @@ print('Getting prices for ' + loader_format_ddmmmyy) #display
 for ticker in tqdm(tckr_ls):
   try:
     price = price_grab(str(ticker))   #grabs price from AA Charts
-    px_dict[ticker] = price
+    data_dict[ticker] = price
   except Exception as e:
     print(e, 'skipped '+ ticker)
     skipped_tickers[ticker] = ''
@@ -210,7 +210,6 @@ TDP_HEADERS_DICT = {
 #TDP Loader Construction
 ldr_dict = {} # for loader content to be converted into pandas dataframe
 row = 0 # row counter in loader
-
 for line in TDP_CRED_LS: # this loop sets up the loader credentials into the dictionary to be converted into pandas df
   ldr_list = [''] * len(TDP_HEADERS_DICT['px']) # sets number of blank cells and file width
   ldr_list[0] = line # inserts tdp credentials into first column of row
@@ -218,8 +217,8 @@ for line in TDP_CRED_LS: # this loop sets up the loader credentials into the dic
   row += 1
 ldr_dict[row] = TDP_HEADERS_DICT['px']
 row += 1
-for i in px_dict:
-  ldr_dict[row] = [loader_format_ddmmmyy,'BB_TCM',i,1,px_dict[i],'','','']
+for i in data_dict:
+  ldr_dict[row] = [loader_format_ddmmmyy,'BB_TCM',i,1,data_dict[i],'','','']
   row +=1
 ldr_df = pd.DataFrame.from_dict(ldr_dict,orient='index')
 
@@ -227,6 +226,26 @@ print(filename := 'tdp_loader_PRICE_' + file_format_yymmdd)
 ldr_df.to_excel(filename + '.xlsx',index=0,header=False) # save xlsx copy
 if os.path.exists(tdp_folder := 'C:\\tdp_loader\\hk053\\input\\'): # generate csv loader in tdp folder
     ldr_df.to_csv(tdp_folder + filename + '.csv',index=0,header=False)
+
+
+# Skipped Tickers
+if len(skipped_tickers) != 0:
+  ldr_dict = {} # for loader content to be converted into pandas dataframe
+  row = 0 # row counter in loader
+  for line in TDP_CRED_LS: # this loop sets up the loader credentials into the dictionary to be converted into pandas df
+    ldr_list = [''] * len(TDP_HEADERS_DICT['px']) # sets number of blank cells and file width
+    ldr_list[0] = line # inserts tdp credentials into first column of row
+    ldr_dict[row] = ldr_list # add row to dataframe dict
+    row += 1
+  ldr_dict[row] = TDP_HEADERS_DICT['px']
+  row += 1
+  for i in skipped_tickers:
+    ldr_dict[row] = [loader_format_ddmmmyy,'BB_TCM','',1,skipped_tickers[i],'','','']
+    row +=1
+  ldr_df = pd.DataFrame.from_dict(ldr_dict,orient='index')
+
+  print(filename := 'MANUAL_tdp_loader_PRICE_' + file_format_yymmdd)
+  ldr_df.to_excel(filename + '.xlsx',index=0,header=False) # save xlsx copy
 
 email = config.email
 to_email = config.to_email
