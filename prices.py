@@ -141,8 +141,9 @@ def db_price(ticker_ls): # For HK Options
   if callput == 'P':
     price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
   else:
-    price = option_chain.find('td', class_ = 'live_option_search').text
-    price = '0' if price == '-' else price
+    (price := 0 if price := option_chain.find('td', class_ = 'live_option_search').text == '-' else price)
+    if price == 0:
+      price = option_chain.find_all('td' , class_ = 'live_option_search')[2].text
   return price
 
 def et_fut(ticker_ls): # For HK Futures
@@ -163,9 +164,21 @@ def yh_price(ticker_ls): # For SG/TW/US Equity/Futures/Index
   price = round(yf.Ticker(code).history(period='1d').iloc[0, 3],2)
   return price
 
+def extract_tickers(ticker_file):
+  portdf = pd.read_excel(ticker_file) # Extract tickers from ticker file
+  for col in portdf:
+    if not(portdf[col].str.contains('BB_TCM',case=False).any()):
+      portdf.drop(columns=[col],inplace=True)
+  portdf.dropna(inplace=True)
+  tckr_ls = []
+  for col in portdf:
+    tckr_ls += portdf[col].tolist()
+  tckr_ls = list(set(tckr_ls))
+  return tckr_ls
 
-portdf = pd.read_excel(PORT_TICKERS_FILE) # Extract tickers from ticker file
-tckr_ls = list(portdf[portdf.columns[0]]) # Store extracted tickers in dataframe
+# portdf = pd.read_excel(PORT_TICKERS_FILE) # Extract tickers from ticker file
+# tckr_ls = list(portdf[portdf.columns[0]]) # Store extracted tickers in dataframe
+tckr_ls = extract_tickers(PORT_TICKERS_FILE)
 
 in_date = datetime.datetime.today()
 # in_date = datetime.datetime.fromisoformat("2021-09-01 10:10:10") ###### FOR TESTING ######
