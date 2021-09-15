@@ -255,7 +255,7 @@ if len(skipped_tickers) != 0:
   ldr_dict[row] = TDP_HEADERS_DICT['px']
   row += 1
   for i in skipped_tickers:
-    ldr_dict[row] = [loader_format_ddmmmyy,'BB_TCM','',1,skipped_tickers[i],'','','']
+    ldr_dict[row] = [loader_format_ddmmmyy,'BB_TCM',i,1,'','','','']
     row +=1
   ldr_df = pd.DataFrame.from_dict(ldr_dict,orient='index')
 
