@@ -130,20 +130,20 @@ def aa_price(ticker_ls): # For HK/CH Equity/Index
 def db_price(ticker_ls): # For HK Options
   URL_1 = 'http://www.dbpower.com.hk/en/option/option-search?otype=ucode&ucode='
   URL_2 = '&hcode=&mdate='
-  code = ticker_ls[0].zfill(5) #1088
+  code = ticker_ls[0].zfill(5)
   exp = ticker_ls[2].split('/')
   exp_code = '20' + exp[-1] + '-' + exp[0] #YYYY-MM
   callput = ticker_ls[3][0].upper()
   strike = ticker_ls[3][1:]
   db_url = URL_1 + code + URL_2 + exp_code
   soup = get_soup(db_url)
-  option_chain = soup.table.find(text = strike, class_ = 'strike').parent
+  option_chain = soup.table.find(text = strike, class_ = 'strike').parent.find_all('td',class_='live_option_search')
   if callput == 'P':
-    price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
+    price = option_chain[-1].text if (price := option_chain[4].text) == '-' else price
   else:
-<<<<<<< HEAD
-    price = 0 if (price := option_chain.find('td', class_ = 'live_option_search').text) == '-' else price
->>>>>>> 6a7b5585d6c593b691fe0ac98be3b8f94674bde7
+    price = option_chain[3].text if (price := option_chain[0].text) == '-' else price
+  if price == '-':
+    price = 0 
   return price
 
 def et_fut(ticker_ls): # For HK Futures
@@ -168,8 +168,10 @@ def extract_tickers(ticker_file):
   portdf = pd.read_excel(ticker_file) # Extract tickers from ticker file
   for col in portdf:
     if not(portdf[col].str.contains('BB_TCM',case=False).any()):
-      portdf.drop(columns=[col],inplace=True)
-  portdf.dropna(inplace=True)
+      portdf.drop(columns = [col], inplace = True)
+  portdf.dropna(inplace = True)
+  portdf.rename(columns = portdf.iloc[0], inplace = True)
+  portdf.drop(index = portdf.iloc[0].name, inplace = True)
   tckr_ls = []
   for col in portdf:
     tckr_ls += portdf[col].tolist()
