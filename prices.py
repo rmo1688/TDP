@@ -141,9 +141,9 @@ def db_price(ticker_ls): # For HK Options
   if callput == 'P':
     price = option_chain.find_next_sibling('td', class_ = 'live_option_search').text
   else:
-    (price := 0 if price := option_chain.find('td', class_ = 'live_option_search').text == '-' else price)
-    if price == 0:
-      price = option_chain.find_all('td' , class_ = 'live_option_search')[2].text
+<<<<<<< HEAD
+    price = 0 if (price := option_chain.find('td', class_ = 'live_option_search').text) == '-' else price
+>>>>>>> 6a7b5585d6c593b691fe0ac98be3b8f94674bde7
   return price
 
 def et_fut(ticker_ls): # For HK Futures
