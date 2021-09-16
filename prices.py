@@ -95,7 +95,7 @@ def price_grab(ticker): # Selects price source and converts Bloomberg ticker to 
     px_src = 'db'
   elif len(code) == 5 and code[0] in '128':
     sec_type = 'WARRANT'
-    px_src = 'db'
+    px_src = 'aa'
   else: # EQUITY
     exch = exch if exch != 'CH' else 'C1' if code.startswith('6') else 'C2'
     px_src = EXCH_DICT[exch][0]
@@ -200,13 +200,13 @@ for ticker in tqdm(tckr_ls):
     print(e, 'skipped '+ ticker)
     skipped_tickers[ticker] = ''
 
-#TDP Loader Definitions
+# TDP Loader Definitions
 TDP_CRED_LS = [
               '#!CONNECT=HK053_RMO/HK053_RMO@PROD_HO3ORC08_FM.world',
               '#!MAX_ERROR=1000',
               '#!OPF=TDP_LOADER.import_price',
               ]
-#file type header chooser
+# file type header chooser
 TDP_HEADERS_DICT = {
                     'px'    : [ #headers for this type of loader
                               '#in_ladder_date',
@@ -222,7 +222,7 @@ TDP_HEADERS_DICT = {
                     'delta' : [],
                   }
 
-#TDP Loader Construction
+# TDP Loader Construction
 ldr_dict = {} # for loader content to be converted into pandas dataframe
 row = 0 # row counter in loader
 for line in TDP_CRED_LS: # this loop sets up the loader credentials into the dictionary to be converted into pandas df
